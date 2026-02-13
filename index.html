@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>美国地图拼图游戏 | US Map Puzzle</title>
+<title>世界地图拼图游戏 | World Map Puzzle</title>
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <script src="https://d3js.org/topojson.v3.min.js"></script>
 <style>
@@ -11,76 +11,354 @@
 
   body {
     font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
-    background: linear-gradient(135deg, #0a1628 0%, #1a2a4a 50%, #0d1f3c 100%);
+    background: linear-gradient(135deg, #0a0f1e 0%, #111b33 50%, #0a1628 100%);
     color: #fff;
     min-height: 100vh;
     overflow: hidden;
+    user-select: none;
   }
 
   #header {
     text-align: center;
-    padding: 12px 0 4px;
+    padding: 10px 0 2px;
     position: relative;
     z-index: 10;
   }
 
   #header h1 {
-    font-size: 28px;
+    font-size: 26px;
     font-weight: 700;
-    background: linear-gradient(90deg, #60a5fa, #a78bfa, #f472b6);
+    background: linear-gradient(90deg, #34d399, #60a5fa, #a78bfa, #f472b6);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     letter-spacing: 2px;
   }
 
   #header p {
-    font-size: 13px;
+    font-size: 12px;
     color: #94a3b8;
     margin-top: 2px;
   }
 
-  #map-container {
+  #controls {
     display: flex;
     justify-content: center;
     align-items: center;
-    width: 100%;
-    height: calc(100vh - 80px);
+    gap: 8px;
+    padding: 6px 0;
     position: relative;
+    z-index: 20;
   }
+
+  #search-box {
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 10px 0 0 10px;
+    padding: 9px 16px;
+    color: #e2e8f0;
+    font-size: 14px;
+    width: 280px;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+  }
+  #search-box:focus {
+    border-color: #60a5fa;
+    box-shadow: 0 0 12px rgba(96,165,250,0.25);
+  }
+  #search-box::placeholder { color: #64748b; text-transform: none; letter-spacing: 0; }
+
+  #search-btn {
+    background: linear-gradient(135deg, #3b82f6, #6366f1);
+    border: none;
+    color: #fff;
+    padding: 9px 20px;
+    border-radius: 0 10px 10px 0;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+  }
+  #search-btn:hover {
+    filter: brightness(1.15);
+    box-shadow: 0 4px 15px rgba(99,102,241,0.4);
+  }
+  #search-btn:active { transform: scale(0.97); }
+  #search-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    filter: none;
+    box-shadow: none;
+  }
+
+  #search-hint {
+    font-size: 11px;
+    color: #64748b;
+    margin-left: 8px;
+    transition: all 0.3s;
+  }
+  #search-hint.error {
+    color: #f87171;
+    animation: shake 0.4s ease;
+  }
+
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20%, 60% { transform: translateX(-4px); }
+    40%, 80% { transform: translateX(4px); }
+  }
+
+  /* Autocomplete dropdown */
+  #autocomplete {
+    display: none;
+    position: absolute;
+    top: 44px;
+    left: 50%;
+    transform: translateX(calc(-140px - 30px));
+    width: 336px;
+    max-height: 240px;
+    overflow-y: auto;
+    background: rgba(15,23,42,0.97);
+    border: 1px solid rgba(96,165,250,0.25);
+    border-radius: 10px;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+    backdrop-filter: blur(12px);
+    z-index: 30;
+  }
+  #autocomplete.show { display: block; }
+
+  .ac-item {
+    padding: 8px 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: background 0.15s;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+  .ac-item:last-child { border-bottom: none; }
+  .ac-item:hover, .ac-item.active { background: rgba(96,165,250,0.15); }
+  .ac-item .ac-flag { font-size: 20px; }
+  .ac-item .ac-code {
+    font-weight: 700;
+    font-size: 13px;
+    color: #60a5fa;
+    width: 28px;
+    letter-spacing: 1px;
+  }
+  .ac-item .ac-name { font-size: 13px; color: #e2e8f0; }
+  .ac-item .ac-cn { font-size: 12px; color: #94a3b8; margin-left: 4px; }
+
+  #map-container {
+    width: 100%;
+    height: calc(100vh - 82px);
+    position: relative;
+    cursor: grab;
+  }
+  #map-container:active { cursor: grabbing; }
 
   #map-svg {
     width: 100%;
     height: 100%;
   }
 
-  .state-path {
-    stroke: #1e293b;
-    stroke-width: 1;
+  .country-path {
+    stroke: #1a2540;
+    stroke-width: 0.4;
     cursor: pointer;
-    transition: filter 0.2s, stroke-width 0.2s;
+    transition: filter 0.15s;
   }
 
-  .state-path:hover {
-    filter: brightness(1.3) drop-shadow(0 0 8px rgba(255,255,255,0.3));
+  .country-path:hover {
+    filter: brightness(1.35) drop-shadow(0 0 6px rgba(255,255,255,0.25));
+  }
+
+  .country-path.dimmed {
+    opacity: 0.15;
+    filter: saturate(0.3);
+  }
+
+  .country-path.search-focus {
+    filter: brightness(1.4) drop-shadow(0 0 14px rgba(251,191,36,0.6));
+    stroke: #fbbf24;
     stroke-width: 2;
-    stroke: #fff;
   }
 
-  .state-label {
-    font-size: 9px;
+  .country-label {
+    font-size: 6.5px;
     fill: #fff;
     text-anchor: middle;
     pointer-events: none;
     font-weight: 600;
-    text-shadow: 0 1px 3px rgba(0,0,0,0.8);
-    opacity: 0.9;
+    opacity: 0.85;
+    paint-order: stroke;
+    stroke: rgba(0,0,0,0.6);
+    stroke-width: 2px;
+    stroke-linecap: round;
+    stroke-linejoin: round;
   }
 
-  .state-label-small {
-    font-size: 7px;
+  .country-label.label-lg { font-size: 8px; }
+  .country-label.label-sm { font-size: 5px; opacity: 0.7; }
+  .country-label.dimmed { opacity: 0.08; }
+
+  /* Tooltip */
+  #tooltip {
+    display: none;
+    position: fixed;
+    background: rgba(15,23,42,0.95);
+    border: 1px solid rgba(96,165,250,0.3);
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 12px;
+    pointer-events: none;
+    z-index: 50;
+    backdrop-filter: blur(6px);
+    max-width: 220px;
+  }
+  #tooltip .tt-name { font-weight: 700; color: #f1f5f9; }
+  #tooltip .tt-cn { color: #94a3b8; font-size: 11px; }
+
+  /* ===== Bottom detail panel (replaces modal for search) ===== */
+  #detail-panel {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: linear-gradient(180deg, rgba(15,23,42,0.0) 0%, rgba(15,23,42,0.97) 12%, rgba(15,23,42,0.99) 100%);
+    backdrop-filter: blur(16px);
+    z-index: 80;
+    transform: translateY(100%);
+    transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+    padding: 30px 0 0;
+  }
+  #detail-panel.active {
+    transform: translateY(0);
   }
 
-  /* Modal overlay */
+  #detail-inner {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0 28px 22px;
+    display: flex;
+    align-items: center;
+    gap: 24px;
+  }
+
+  #detail-flag {
+    font-size: 52px;
+    line-height: 1;
+    flex-shrink: 0;
+    animation: popIn 0.5s 0.3s both;
+  }
+
+  @keyframes popIn {
+    from { transform: scale(0); opacity: 0; }
+    50% { transform: scale(1.2); }
+    to { transform: scale(1); opacity: 1; }
+  }
+
+  #detail-names {
+    flex-shrink: 0;
+    min-width: 160px;
+  }
+  #detail-name-en {
+    font-size: 26px;
+    font-weight: 700;
+    color: #f1f5f9;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: color 0.2s;
+  }
+  #detail-name-en:hover { color: #60a5fa; }
+  #detail-name-en .speak-icon {
+    font-size: 18px;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  #detail-name-en:hover .speak-icon { opacity: 1; }
+  #detail-name-cn {
+    font-size: 17px;
+    color: #94a3b8;
+    margin-top: 2px;
+  }
+
+  #detail-stats {
+    display: flex;
+    gap: 16px;
+    flex: 1;
+    flex-wrap: wrap;
+  }
+
+  .stat-card {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+    padding: 10px 16px;
+    min-width: 130px;
+    flex: 1;
+    opacity: 0;
+    transform: translateY(20px);
+    animation: statIn 0.4s ease both;
+  }
+  .stat-card:nth-child(1) { animation-delay: 0.15s; }
+  .stat-card:nth-child(2) { animation-delay: 0.25s; }
+  .stat-card:nth-child(3) { animation-delay: 0.35s; }
+  .stat-card:nth-child(4) { animation-delay: 0.45s; }
+  .stat-card:nth-child(5) { animation-delay: 0.55s; }
+
+  @keyframes statIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .stat-card .stat-icon { font-size: 16px; }
+  .stat-card .stat-label {
+    font-size: 9px;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-top: 2px;
+  }
+  .stat-card .stat-value {
+    font-size: 15px;
+    font-weight: 600;
+    color: #e2e8f0;
+    margin-top: 2px;
+  }
+  .stat-card .stat-sub {
+    font-size: 11px;
+    color: #94a3b8;
+  }
+
+  #cancel-btn {
+    background: rgba(239,68,68,0.15);
+    border: 1px solid rgba(239,68,68,0.3);
+    color: #f87171;
+    padding: 10px 22px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    transition: all 0.2s;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  #cancel-btn:hover {
+    background: rgba(239,68,68,0.25);
+    border-color: rgba(239,68,68,0.5);
+    transform: translateY(-1px);
+  }
+  #cancel-btn:active { transform: scale(0.97); }
+
+  /* ===== Click modal (kept for direct click on map) ===== */
   #modal-overlay {
     display: none;
     position: fixed;
@@ -92,21 +370,13 @@
     align-items: center;
     animation: fadeIn 0.3s ease;
   }
+  #modal-overlay.active { display: flex; }
 
-  #modal-overlay.active {
-    display: flex;
-  }
-
-  @keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
-  }
-
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
   @keyframes slideUp {
     from { transform: translateY(40px) scale(0.95); opacity: 0; }
     to { transform: translateY(0) scale(1); opacity: 1; }
   }
-
   @keyframes zoomState {
     from { transform: scale(0.3); opacity: 0; }
     to { transform: scale(1); opacity: 1; }
@@ -116,34 +386,26 @@
     background: linear-gradient(145deg, #1e293b, #0f172a);
     border: 1px solid rgba(96,165,250,0.3);
     border-radius: 20px;
-    padding: 0;
-    width: 680px;
-    max-width: 92vw;
-    max-height: 88vh;
-    overflow: hidden;
+    width: 700px;
+    max-width: 94vw;
+    max-height: 90vh;
+    overflow-y: auto;
     animation: slideUp 0.4s ease;
     box-shadow: 0 25px 60px rgba(0,0,0,0.5), 0 0 40px rgba(96,165,250,0.1);
   }
 
   #modal-header {
-    padding: 24px 28px 16px;
+    padding: 24px 28px 14px;
     border-bottom: 1px solid rgba(255,255,255,0.08);
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
   }
 
-  #modal-state-name {
-    font-size: 32px;
-    font-weight: 700;
-    color: #f1f5f9;
-  }
-
-  #modal-state-name-cn {
-    font-size: 20px;
-    color: #94a3b8;
-    margin-top: 2px;
-  }
+  #modal-flag { font-size: 48px; line-height: 1; margin-right: 14px; }
+  #modal-names { flex: 1; }
+  #modal-country-name { font-size: 30px; font-weight: 700; color: #f1f5f9; }
+  #modal-country-cn { font-size: 19px; color: #94a3b8; margin-top: 1px; }
 
   #modal-close {
     background: rgba(255,255,255,0.08);
@@ -152,19 +414,14 @@
     font-size: 22px;
     cursor: pointer;
     border-radius: 50%;
-    width: 38px;
-    height: 38px;
+    width: 38px; height: 38px;
     display: flex;
     align-items: center;
     justify-content: center;
     transition: all 0.2s;
     flex-shrink: 0;
   }
-
-  #modal-close:hover {
-    background: rgba(239,68,68,0.2);
-    color: #ef4444;
-  }
+  #modal-close:hover { background: rgba(239,68,68,0.2); color: #ef4444; }
 
   #modal-body {
     display: flex;
@@ -172,9 +429,9 @@
     gap: 24px;
   }
 
-  #state-shape-container {
-    flex: 0 0 200px;
-    height: 180px;
+  #country-shape-container {
+    flex: 0 0 210px;
+    height: 190px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -183,57 +440,35 @@
     border: 1px solid rgba(255,255,255,0.06);
   }
 
-  #state-shape-svg {
-    width: 180px;
-    height: 160px;
-  }
+  #country-shape-svg { width: 190px; height: 170px; }
+  #country-shape-svg .zoomed-country { animation: zoomState 0.5s ease; }
 
-  #state-shape-svg .zoomed-state {
-    animation: zoomState 0.5s ease;
-  }
-
-  #state-info {
+  #country-info {
     flex: 1;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 10px;
   }
 
   .info-row {
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 10px 14px;
+    padding: 9px 14px;
     background: rgba(255,255,255,0.04);
     border-radius: 10px;
     border: 1px solid rgba(255,255,255,0.05);
   }
 
-  .info-icon {
-    font-size: 22px;
-    width: 36px;
-    text-align: center;
-    flex-shrink: 0;
-  }
-
+  .info-icon { font-size: 20px; width: 34px; text-align: center; flex-shrink: 0; }
   .info-label {
-    font-size: 11px;
+    font-size: 10px;
     color: #64748b;
     text-transform: uppercase;
     letter-spacing: 1px;
   }
-
-  .info-value {
-    font-size: 16px;
-    font-weight: 600;
-    color: #e2e8f0;
-  }
-
-  .info-value-sub {
-    font-size: 12px;
-    color: #94a3b8;
-    font-weight: 400;
-  }
+  .info-value { font-size: 15px; font-weight: 600; color: #e2e8f0; }
+  .info-value-sub { font-size: 12px; color: #94a3b8; font-weight: 400; }
 
   #speak-btn {
     display: inline-flex;
@@ -245,82 +480,124 @@
     padding: 8px 16px;
     border-radius: 8px;
     cursor: pointer;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 500;
     transition: all 0.2s;
     margin-top: 4px;
     align-self: flex-start;
   }
+  #speak-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 15px rgba(99,102,241,0.4); }
+  #speak-btn:active { transform: scale(0.97); }
 
-  #speak-btn:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 15px rgba(99,102,241,0.4);
+  /* Pulse ring on focused country */
+  .pulse-ring {
+    fill: none;
+    stroke: #fbbf24;
+    stroke-width: 2;
+    opacity: 0;
+    animation: pulseRing 2s ease-in-out infinite;
+  }
+  @keyframes pulseRing {
+    0% { r: 0; opacity: 0.8; stroke-width: 3; }
+    100% { r: 50; opacity: 0; stroke-width: 0.5; }
   }
 
-  #speak-btn:active {
-    transform: scale(0.97);
-  }
-
-  /* small states legend on east coast */
-  .state-line {
-    stroke: #94a3b8;
-    stroke-width: 0.5;
-    opacity: 0.6;
+  @media (max-width: 800px) {
+    #detail-inner { flex-wrap: wrap; gap: 12px; }
+    #detail-stats { gap: 8px; }
+    .stat-card { min-width: 100px; padding: 8px 12px; }
+    #modal-body { flex-direction: column; }
+    #country-shape-container { flex: none; width: 100%; height: 140px; }
   }
 </style>
 </head>
 <body>
 
 <div id="header">
-  <h1>United States Puzzle Map</h1>
-  <p>点击任意一个州查看详细信息 | Click any state for details</p>
+  <h1>🌍 World Map Puzzle 世界地图拼图</h1>
+  <p>输入两位国家代码搜索 · 点击任意国家查看详情 · 滚轮缩放 · 拖拽平移</p>
+</div>
+<div id="controls">
+  <input id="search-box" type="text" maxlength="2" placeholder="输入国家代码 (如 CN, US, JP)..." autocomplete="off"/>
+  <button id="search-btn" disabled>🔍 搜索</button>
+  <span id="search-hint">输入2位字母代码</span>
+  <div id="autocomplete"></div>
 </div>
 
 <div id="map-container">
   <svg id="map-svg"></svg>
 </div>
 
+<div id="tooltip">
+  <div class="tt-name" id="tt-name"></div>
+  <div class="tt-cn" id="tt-cn"></div>
+</div>
+
+<!-- Bottom detail panel for search -->
+<div id="detail-panel">
+  <div id="detail-inner">
+    <div id="detail-flag"></div>
+    <div id="detail-names">
+      <div id="detail-name-en"><span id="detail-en-text"></span><span class="speak-icon">🔊</span></div>
+      <div id="detail-name-cn"></div>
+    </div>
+    <div id="detail-stats"></div>
+    <button id="cancel-btn">✕ 取消返回</button>
+  </div>
+</div>
+
+<!-- Modal overlay for direct click -->
 <div id="modal-overlay">
   <div id="modal-content">
     <div id="modal-header">
-      <div>
-        <div id="modal-state-name">California</div>
-        <div id="modal-state-name-cn">加利福尼亚州</div>
+      <div style="display:flex;align-items:center;">
+        <div id="modal-flag"></div>
+        <div id="modal-names">
+          <div id="modal-country-name"></div>
+          <div id="modal-country-cn"></div>
+        </div>
       </div>
       <button id="modal-close" title="关闭">&times;</button>
     </div>
     <div id="modal-body">
-      <div id="state-shape-container">
-        <svg id="state-shape-svg" viewBox="0 0 200 200"></svg>
+      <div id="country-shape-container">
+        <svg id="country-shape-svg" viewBox="0 0 200 200"></svg>
       </div>
-      <div id="state-info">
+      <div id="country-info">
         <div class="info-row">
           <div class="info-icon">🏛️</div>
           <div>
             <div class="info-label">Capital 首都</div>
-            <div class="info-value" id="info-capital">Sacramento</div>
-            <div class="info-value-sub" id="info-capital-cn">萨克拉门托</div>
+            <div class="info-value" id="info-capital"></div>
+            <div class="info-value-sub" id="info-capital-cn"></div>
           </div>
         </div>
         <div class="info-row">
           <div class="info-icon">👥</div>
           <div>
             <div class="info-label">Population 人口</div>
-            <div class="info-value" id="info-population">39,538,223</div>
+            <div class="info-value" id="info-population"></div>
           </div>
         </div>
         <div class="info-row">
           <div class="info-icon">💰</div>
           <div>
             <div class="info-label">GDP Per Capita 人均GDP</div>
-            <div class="info-value" id="info-gdp">$85,546</div>
+            <div class="info-value" id="info-gdp"></div>
           </div>
         </div>
         <div class="info-row">
-          <div class="info-icon">📍</div>
+          <div class="info-icon">🌐</div>
           <div>
-            <div class="info-label">Abbreviation 缩写</div>
-            <div class="info-value" id="info-abbrev">CA</div>
+            <div class="info-label">ISO Code 国家代码</div>
+            <div class="info-value" id="info-code"></div>
+          </div>
+        </div>
+        <div class="info-row">
+          <div class="info-icon">📐</div>
+          <div>
+            <div class="info-label">Continent 所属洲</div>
+            <div class="info-value" id="info-continent"></div>
           </div>
         </div>
         <button id="speak-btn">🔊 Hear Pronunciation</button>
@@ -330,250 +607,627 @@
 </div>
 
 <script>
-// ========== STATE DATA ==========
-const stateData = {
-  "AL": { name: "Alabama", cn: "阿拉巴马州", capital: "Montgomery", capitalCn: "蒙哥马利", population: 5024279, gdpPerCapita: 46479, fips: "01" },
-  "AK": { name: "Alaska", cn: "阿拉斯加州", capital: "Juneau", capitalCn: "朱诺", population: 733391, gdpPerCapita: 73205, fips: "02" },
-  "AZ": { name: "Arizona", cn: "亚利桑那州", capital: "Phoenix", capitalCn: "凤凰城", population: 7151502, gdpPerCapita: 52789, fips: "04" },
-  "AR": { name: "Arkansas", cn: "阿肯色州", capital: "Little Rock", capitalCn: "小石城", population: 3011524, gdpPerCapita: 43033, fips: "05" },
-  "CA": { name: "California", cn: "加利福尼亚州", capital: "Sacramento", capitalCn: "萨克拉门托", population: 39538223, gdpPerCapita: 85546, fips: "06" },
-  "CO": { name: "Colorado", cn: "科罗拉多州", capital: "Denver", capitalCn: "丹佛", population: 5773714, gdpPerCapita: 72331, fips: "08" },
-  "CT": { name: "Connecticut", cn: "康涅狄格州", capital: "Hartford", capitalCn: "哈特福德", population: 3605944, gdpPerCapita: 82571, fips: "09" },
-  "DE": { name: "Delaware", cn: "特拉华州", capital: "Dover", capitalCn: "多佛", population: 989948, gdpPerCapita: 79879, fips: "10" },
-  "FL": { name: "Florida", cn: "佛罗里达州", capital: "Tallahassee", capitalCn: "塔拉哈西", population: 21538187, gdpPerCapita: 51847, fips: "12" },
-  "GA": { name: "Georgia", cn: "佐治亚州", capital: "Atlanta", capitalCn: "亚特兰大", population: 10711908, gdpPerCapita: 58056, fips: "13" },
-  "HI": { name: "Hawaii", cn: "夏威夷州", capital: "Honolulu", capitalCn: "檀香山", population: 1455271, gdpPerCapita: 63530, fips: "15" },
-  "ID": { name: "Idaho", cn: "爱达荷州", capital: "Boise", capitalCn: "博伊西", population: 1839106, gdpPerCapita: 47394, fips: "16" },
-  "IL": { name: "Illinois", cn: "伊利诺伊州", capital: "Springfield", capitalCn: "斯普林菲尔德", population: 12812508, gdpPerCapita: 71479, fips: "17" },
-  "IN": { name: "Indiana", cn: "印第安纳州", capital: "Indianapolis", capitalCn: "印第安纳波利斯", population: 6785528, gdpPerCapita: 54181, fips: "18" },
-  "IA": { name: "Iowa", cn: "艾奥瓦州", capital: "Des Moines", capitalCn: "得梅因", population: 3190369, gdpPerCapita: 58570, fips: "19" },
-  "KS": { name: "Kansas", cn: "堪萨斯州", capital: "Topeka", capitalCn: "托皮卡", population: 2937880, gdpPerCapita: 56422, fips: "20" },
-  "KY": { name: "Kentucky", cn: "肯塔基州", capital: "Frankfort", capitalCn: "法兰克福", population: 4505836, gdpPerCapita: 46744, fips: "21" },
-  "LA": { name: "Louisiana", cn: "路易斯安那州", capital: "Baton Rouge", capitalCn: "巴吞鲁日", population: 4657757, gdpPerCapita: 52094, fips: "22" },
-  "ME": { name: "Maine", cn: "缅因州", capital: "Augusta", capitalCn: "奥古斯塔", population: 1362359, gdpPerCapita: 49220, fips: "23" },
-  "MD": { name: "Maryland", cn: "马里兰州", capital: "Annapolis", capitalCn: "安纳波利斯", population: 6177224, gdpPerCapita: 65545, fips: "24" },
-  "MA": { name: "Massachusetts", cn: "马萨诸塞州", capital: "Boston", capitalCn: "波士顿", population: 7029917, gdpPerCapita: 91130, fips: "25" },
-  "MI": { name: "Michigan", cn: "密歇根州", capital: "Lansing", capitalCn: "兰辛", population: 10077331, gdpPerCapita: 52439, fips: "26" },
-  "MN": { name: "Minnesota", cn: "明尼苏达州", capital: "Saint Paul", capitalCn: "圣保罗", population: 5706494, gdpPerCapita: 67456, fips: "27" },
-  "MS": { name: "Mississippi", cn: "密西西比州", capital: "Jackson", capitalCn: "杰克逊", population: 2961279, gdpPerCapita: 38320, fips: "28" },
-  "MO": { name: "Missouri", cn: "密苏里州", capital: "Jefferson City", capitalCn: "杰斐逊城", population: 6154913, gdpPerCapita: 51547, fips: "29" },
-  "MT": { name: "Montana", cn: "蒙大拿州", capital: "Helena", capitalCn: "海伦娜", population: 1084225, gdpPerCapita: 49936, fips: "30" },
-  "NE": { name: "Nebraska", cn: "内布拉斯加州", capital: "Lincoln", capitalCn: "林肯", population: 1961504, gdpPerCapita: 64296, fips: "31" },
-  "NV": { name: "Nevada", cn: "内华达州", capital: "Carson City", capitalCn: "卡森城", population: 3104614, gdpPerCapita: 55548, fips: "32" },
-  "NH": { name: "New Hampshire", cn: "新罕布什尔州", capital: "Concord", capitalCn: "康科德", population: 1377529, gdpPerCapita: 65024, fips: "33" },
-  "NJ": { name: "New Jersey", cn: "新泽西州", capital: "Trenton", capitalCn: "特伦顿", population: 9288994, gdpPerCapita: 70800, fips: "34" },
-  "NM": { name: "New Mexico", cn: "新墨西哥州", capital: "Santa Fe", capitalCn: "圣菲", population: 2117522, gdpPerCapita: 46718, fips: "35" },
-  "NY": { name: "New York", cn: "纽约州", capital: "Albany", capitalCn: "奥尔巴尼", population: 20201249, gdpPerCapita: 90043, fips: "36" },
-  "NC": { name: "North Carolina", cn: "北卡罗来纳州", capital: "Raleigh", capitalCn: "罗利", population: 10439388, gdpPerCapita: 55452, fips: "37" },
-  "ND": { name: "North Dakota", cn: "北达科他州", capital: "Bismarck", capitalCn: "俾斯麦", population: 779094, gdpPerCapita: 67649, fips: "38" },
-  "OH": { name: "Ohio", cn: "俄亥俄州", capital: "Columbus", capitalCn: "哥伦布", population: 11799448, gdpPerCapita: 54768, fips: "39" },
-  "OK": { name: "Oklahoma", cn: "俄克拉荷马州", capital: "Oklahoma City", capitalCn: "俄克拉荷马城", population: 3959353, gdpPerCapita: 49889, fips: "40" },
-  "OR": { name: "Oregon", cn: "俄勒冈州", capital: "Salem", capitalCn: "塞勒姆", population: 4237256, gdpPerCapita: 58057, fips: "41" },
-  "PA": { name: "Pennsylvania", cn: "宾夕法尼亚州", capital: "Harrisburg", capitalCn: "哈里斯堡", population: 13002700, gdpPerCapita: 61872, fips: "42" },
-  "RI": { name: "Rhode Island", cn: "罗德岛州", capital: "Providence", capitalCn: "普罗维登斯", population: 1097379, gdpPerCapita: 58003, fips: "44" },
-  "SC": { name: "South Carolina", cn: "南卡罗来纳州", capital: "Columbia", capitalCn: "哥伦比亚", population: 5118425, gdpPerCapita: 46539, fips: "45" },
-  "SD": { name: "South Dakota", cn: "南达科他州", capital: "Pierre", capitalCn: "皮尔", population: 886667, gdpPerCapita: 60297, fips: "46" },
-  "TN": { name: "Tennessee", cn: "田纳西州", capital: "Nashville", capitalCn: "纳什维尔", population: 6910840, gdpPerCapita: 55502, fips: "47" },
-  "TX": { name: "Texas", cn: "得克萨斯州", capital: "Austin", capitalCn: "奥斯汀", population: 29145505, gdpPerCapita: 63588, fips: "48" },
-  "UT": { name: "Utah", cn: "犹他州", capital: "Salt Lake City", capitalCn: "盐湖城", population: 3271616, gdpPerCapita: 60365, fips: "49" },
-  "VT": { name: "Vermont", cn: "佛蒙特州", capital: "Montpelier", capitalCn: "蒙彼利埃", population: 643077, gdpPerCapita: 51831, fips: "50" },
-  "VA": { name: "Virginia", cn: "弗吉尼亚州", capital: "Richmond", capitalCn: "里士满", population: 8631393, gdpPerCapita: 63652, fips: "51" },
-  "WA": { name: "Washington", cn: "华盛顿州", capital: "Olympia", capitalCn: "奥林匹亚", population: 7614893, gdpPerCapita: 79506, fips: "53" },
-  "WV": { name: "West Virginia", cn: "西弗吉尼亚州", capital: "Charleston", capitalCn: "查尔斯顿", population: 1793716, gdpPerCapita: 42019, fips: "54" },
-  "WI": { name: "Wisconsin", cn: "威斯康星州", capital: "Madison", capitalCn: "麦迪逊", population: 5893718, gdpPerCapita: 57617, fips: "55" },
-  "WY": { name: "Wyoming", cn: "怀俄明州", capital: "Cheyenne", capitalCn: "夏延", population: 576851, gdpPerCapita: 68002, fips: "56" },
-  "DC": { name: "District of Columbia", cn: "哥伦比亚特区", capital: "Washington D.C.", capitalCn: "华盛顿特区", population: 689545, gdpPerCapita: 213034, fips: "11" }
+// =====================================================
+//  COUNTRY DATA
+// =====================================================
+const countries = {
+  "004":{a2:"AF",name:"Afghanistan",cn:"阿富汗",capital:"Kabul",capitalCn:"喀布尔",pop:41128771,gdp:364,cont:"Asia 亚洲",flag:"🇦🇫"},
+  "008":{a2:"AL",name:"Albania",cn:"阿尔巴尼亚",capital:"Tirana",capitalCn:"地拉那",pop:2877797,gdp:6810,cont:"Europe 欧洲",flag:"🇦🇱"},
+  "012":{a2:"DZ",name:"Algeria",cn:"阿尔及利亚",capital:"Algiers",capitalCn:"阿尔及尔",pop:44903225,gdp:3765,cont:"Africa 非洲",flag:"🇩🇿"},
+  "024":{a2:"AO",name:"Angola",cn:"安哥拉",capital:"Luanda",capitalCn:"罗安达",pop:34503774,gdp:1953,cont:"Africa 非洲",flag:"🇦🇴"},
+  "032":{a2:"AR",name:"Argentina",cn:"阿根廷",capital:"Buenos Aires",capitalCn:"布宜诺斯艾利斯",pop:45808747,gdp:13709,cont:"S. America 南美洲",flag:"🇦🇷"},
+  "051":{a2:"AM",name:"Armenia",cn:"亚美尼亚",capital:"Yerevan",capitalCn:"埃里温",pop:2963243,gdp:7034,cont:"Asia 亚洲",flag:"🇦🇲"},
+  "036":{a2:"AU",name:"Australia",cn:"澳大利亚",capital:"Canberra",capitalCn:"堪培拉",pop:26439111,gdp:65099,cont:"Oceania 大洋洲",flag:"🇦🇺"},
+  "040":{a2:"AT",name:"Austria",cn:"奥地利",capital:"Vienna",capitalCn:"维也纳",pop:9104772,gdp:56802,cont:"Europe 欧洲",flag:"🇦🇹"},
+  "031":{a2:"AZ",name:"Azerbaijan",cn:"阿塞拜疆",capital:"Baku",capitalCn:"巴库",pop:10145212,gdp:7760,cont:"Asia 亚洲",flag:"🇦🇿"},
+  "050":{a2:"BD",name:"Bangladesh",cn:"孟加拉国",capital:"Dhaka",capitalCn:"达卡",pop:171186372,gdp:2688,cont:"Asia 亚洲",flag:"🇧🇩"},
+  "112":{a2:"BY",name:"Belarus",cn:"白俄罗斯",capital:"Minsk",capitalCn:"明斯克",pop:9498238,gdp:7888,cont:"Europe 欧洲",flag:"🇧🇾"},
+  "056":{a2:"BE",name:"Belgium",cn:"比利时",capital:"Brussels",capitalCn:"布鲁塞尔",pop:11686140,gdp:51767,cont:"Europe 欧洲",flag:"🇧🇪"},
+  "084":{a2:"BZ",name:"Belize",cn:"伯利兹",capital:"Belmopan",capitalCn:"贝尔莫潘",pop:405272,gdp:6165,cont:"N. America 北美洲",flag:"🇧🇿"},
+  "204":{a2:"BJ",name:"Benin",cn:"贝宁",capital:"Porto-Novo",capitalCn:"波多诺伏",pop:13352864,gdp:1399,cont:"Africa 非洲",flag:"🇧🇯"},
+  "064":{a2:"BT",name:"Bhutan",cn:"不丹",capital:"Thimphu",capitalCn:"廷布",pop:787424,gdp:3560,cont:"Asia 亚洲",flag:"🇧🇹"},
+  "068":{a2:"BO",name:"Bolivia",cn:"玻利维亚",capital:"Sucre",capitalCn:"苏克雷",pop:12054379,gdp:3600,cont:"S. America 南美洲",flag:"🇧🇴"},
+  "070":{a2:"BA",name:"Bosnia and Herzegovina",cn:"波黑",capital:"Sarajevo",capitalCn:"萨拉热窝",pop:3233526,gdp:7580,cont:"Europe 欧洲",flag:"🇧🇦"},
+  "072":{a2:"BW",name:"Botswana",cn:"博茨瓦纳",capital:"Gaborone",capitalCn:"哈博罗内",pop:2397241,gdp:7738,cont:"Africa 非洲",flag:"🇧🇼"},
+  "076":{a2:"BR",name:"Brazil",cn:"巴西",capital:"Brasília",capitalCn:"巴西利亚",pop:215313498,gdp:8917,cont:"S. America 南美洲",flag:"🇧🇷"},
+  "096":{a2:"BN",name:"Brunei",cn:"文莱",capital:"Bandar Seri Begawan",capitalCn:"斯里巴加湾市",pop:449002,gdp:37485,cont:"Asia 亚洲",flag:"🇧🇳"},
+  "100":{a2:"BG",name:"Bulgaria",cn:"保加利亚",capital:"Sofia",capitalCn:"索非亚",pop:6878000,gdp:13772,cont:"Europe 欧洲",flag:"🇧🇬"},
+  "854":{a2:"BF",name:"Burkina Faso",cn:"布基纳法索",capital:"Ouagadougou",capitalCn:"瓦加杜古",pop:22100683,gdp:831,cont:"Africa 非洲",flag:"🇧🇫"},
+  "108":{a2:"BI",name:"Burundi",cn:"布隆迪",capital:"Gitega",capitalCn:"基特加",pop:12551213,gdp:238,cont:"Africa 非洲",flag:"🇧🇮"},
+  "116":{a2:"KH",name:"Cambodia",cn:"柬埔寨",capital:"Phnom Penh",capitalCn:"金边",pop:16767842,gdp:1785,cont:"Asia 亚洲",flag:"🇰🇭"},
+  "120":{a2:"CM",name:"Cameroon",cn:"喀麦隆",capital:"Yaoundé",capitalCn:"雅温得",pop:27914536,gdp:1662,cont:"Africa 非洲",flag:"🇨🇲"},
+  "124":{a2:"CA",name:"Canada",cn:"加拿大",capital:"Ottawa",capitalCn:"渥太华",pop:39858480,gdp:52791,cont:"N. America 北美洲",flag:"🇨🇦"},
+  "140":{a2:"CF",name:"Central African Republic",cn:"中非共和国",capital:"Bangui",capitalCn:"班吉",pop:5742315,gdp:480,cont:"Africa 非洲",flag:"🇨🇫"},
+  "148":{a2:"TD",name:"Chad",cn:"乍得",capital:"N'Djamena",capitalCn:"恩贾梅纳",pop:17723315,gdp:695,cont:"Africa 非洲",flag:"🇹🇩"},
+  "152":{a2:"CL",name:"Chile",cn:"智利",capital:"Santiago",capitalCn:"圣地亚哥",pop:19491616,gdp:16265,cont:"S. America 南美洲",flag:"🇨🇱"},
+  "156":{a2:"CN",name:"China",cn:"中国",capital:"Beijing",capitalCn:"北京",pop:1425671352,gdp:12720,cont:"Asia 亚洲",flag:"🇨🇳"},
+  "170":{a2:"CO",name:"Colombia",cn:"哥伦比亚",capital:"Bogotá",capitalCn:"波哥大",pop:51874024,gdp:6630,cont:"S. America 南美洲",flag:"🇨🇴"},
+  "178":{a2:"CG",name:"Congo",cn:"刚果（布）",capital:"Brazzaville",capitalCn:"布拉柴维尔",pop:5970424,gdp:2280,cont:"Africa 非洲",flag:"🇨🇬"},
+  "180":{a2:"CD",name:"DR Congo",cn:"刚果（金）",capital:"Kinshasa",capitalCn:"金沙萨",pop:99010212,gdp:577,cont:"Africa 非洲",flag:"🇨🇩"},
+  "188":{a2:"CR",name:"Costa Rica",cn:"哥斯达黎加",capital:"San José",capitalCn:"圣何塞",pop:5180829,gdp:12509,cont:"N. America 北美洲",flag:"🇨🇷"},
+  "384":{a2:"CI",name:"Côte d'Ivoire",cn:"科特迪瓦",capital:"Yamoussoukro",capitalCn:"亚穆苏克罗",pop:28160542,gdp:2549,cont:"Africa 非洲",flag:"🇨🇮"},
+  "191":{a2:"HR",name:"Croatia",cn:"克罗地亚",capital:"Zagreb",capitalCn:"萨格勒布",pop:3871833,gdp:18398,cont:"Europe 欧洲",flag:"🇭🇷"},
+  "192":{a2:"CU",name:"Cuba",cn:"古巴",capital:"Havana",capitalCn:"哈瓦那",pop:11212191,gdp:9500,cont:"N. America 北美洲",flag:"🇨🇺"},
+  "196":{a2:"CY",name:"Cyprus",cn:"塞浦路斯",capital:"Nicosia",capitalCn:"尼科西亚",pop:1251488,gdp:31551,cont:"Europe 欧洲",flag:"🇨🇾"},
+  "203":{a2:"CZ",name:"Czech Republic",cn:"捷克",capital:"Prague",capitalCn:"布拉格",pop:10827529,gdp:27220,cont:"Europe 欧洲",flag:"🇨🇿"},
+  "208":{a2:"DK",name:"Denmark",cn:"丹麦",capital:"Copenhagen",capitalCn:"哥本哈根",pop:5882261,gdp:67803,cont:"Europe 欧洲",flag:"🇩🇰"},
+  "262":{a2:"DJ",name:"Djibouti",cn:"吉布提",capital:"Djibouti",capitalCn:"吉布提",pop:1120849,gdp:3414,cont:"Africa 非洲",flag:"🇩🇯"},
+  "214":{a2:"DO",name:"Dominican Republic",cn:"多米尼加",capital:"Santo Domingo",capitalCn:"圣多明各",pop:11228821,gdp:10121,cont:"N. America 北美洲",flag:"🇩🇴"},
+  "218":{a2:"EC",name:"Ecuador",cn:"厄瓜多尔",capital:"Quito",capitalCn:"基多",pop:18001000,gdp:6282,cont:"S. America 南美洲",flag:"🇪🇨"},
+  "818":{a2:"EG",name:"Egypt",cn:"埃及",capital:"Cairo",capitalCn:"开罗",pop:110990103,gdp:3699,cont:"Africa 非洲",flag:"🇪🇬"},
+  "222":{a2:"SV",name:"El Salvador",cn:"萨尔瓦多",capital:"San Salvador",capitalCn:"圣萨尔瓦多",pop:6314167,gdp:4988,cont:"N. America 北美洲",flag:"🇸🇻"},
+  "226":{a2:"GQ",name:"Equatorial Guinea",cn:"赤道几内亚",capital:"Malabo",capitalCn:"马拉博",pop:1674908,gdp:8132,cont:"Africa 非洲",flag:"🇬🇶"},
+  "232":{a2:"ER",name:"Eritrea",cn:"厄立特里亚",capital:"Asmara",capitalCn:"阿斯马拉",pop:3748901,gdp:642,cont:"Africa 非洲",flag:"🇪🇷"},
+  "233":{a2:"EE",name:"Estonia",cn:"爱沙尼亚",capital:"Tallinn",capitalCn:"塔林",pop:1322765,gdp:28247,cont:"Europe 欧洲",flag:"🇪🇪"},
+  "748":{a2:"SZ",name:"Eswatini",cn:"斯威士兰",capital:"Mbabane",capitalCn:"姆巴巴内",pop:1192271,gdp:3987,cont:"Africa 非洲",flag:"🇸🇿"},
+  "231":{a2:"ET",name:"Ethiopia",cn:"埃塞俄比亚",capital:"Addis Ababa",capitalCn:"亚的斯亚贝巴",pop:126527060,gdp:1027,cont:"Africa 非洲",flag:"🇪🇹"},
+  "246":{a2:"FI",name:"Finland",cn:"芬兰",capital:"Helsinki",capitalCn:"赫尔辛基",pop:5541274,gdp:53655,cont:"Europe 欧洲",flag:"🇫🇮"},
+  "250":{a2:"FR",name:"France",cn:"法国",capital:"Paris",capitalCn:"巴黎",pop:67935660,gdp:44408,cont:"Europe 欧洲",flag:"🇫🇷"},
+  "266":{a2:"GA",name:"Gabon",cn:"加蓬",capital:"Libreville",capitalCn:"利伯维尔",pop:2388992,gdp:8820,cont:"Africa 非洲",flag:"🇬🇦"},
+  "270":{a2:"GM",name:"Gambia",cn:"冈比亚",capital:"Banjul",capitalCn:"班珠尔",pop:2639916,gdp:840,cont:"Africa 非洲",flag:"🇬🇲"},
+  "268":{a2:"GE",name:"Georgia",cn:"格鲁吉亚",capital:"Tbilisi",capitalCn:"第比利斯",pop:3728573,gdp:6671,cont:"Asia 亚洲",flag:"🇬🇪"},
+  "276":{a2:"DE",name:"Germany",cn:"德国",capital:"Berlin",capitalCn:"柏林",pop:83294633,gdp:51383,cont:"Europe 欧洲",flag:"🇩🇪"},
+  "288":{a2:"GH",name:"Ghana",cn:"加纳",capital:"Accra",capitalCn:"阿克拉",pop:33475870,gdp:2363,cont:"Africa 非洲",flag:"🇬🇭"},
+  "300":{a2:"GR",name:"Greece",cn:"希腊",capital:"Athens",capitalCn:"雅典",pop:10384971,gdp:20867,cont:"Europe 欧洲",flag:"🇬🇷"},
+  "320":{a2:"GT",name:"Guatemala",cn:"危地马拉",capital:"Guatemala City",capitalCn:"危地马拉城",pop:17602431,gdp:5474,cont:"N. America 北美洲",flag:"🇬🇹"},
+  "324":{a2:"GN",name:"Guinea",cn:"几内亚",capital:"Conakry",capitalCn:"科纳克里",pop:13859341,gdp:1194,cont:"Africa 非洲",flag:"🇬🇳"},
+  "624":{a2:"GW",name:"Guinea-Bissau",cn:"几内亚比绍",capital:"Bissau",capitalCn:"比绍",pop:2105566,gdp:775,cont:"Africa 非洲",flag:"🇬🇼"},
+  "328":{a2:"GY",name:"Guyana",cn:"圭亚那",capital:"Georgetown",capitalCn:"乔治敦",pop:808726,gdp:17399,cont:"S. America 南美洲",flag:"🇬🇾"},
+  "332":{a2:"HT",name:"Haiti",cn:"海地",capital:"Port-au-Prince",capitalCn:"太子港",pop:11584996,gdp:1272,cont:"N. America 北美洲",flag:"🇭🇹"},
+  "340":{a2:"HN",name:"Honduras",cn:"洪都拉斯",capital:"Tegucigalpa",capitalCn:"特古西加尔巴",pop:10278345,gdp:2831,cont:"N. America 北美洲",flag:"🇭🇳"},
+  "348":{a2:"HU",name:"Hungary",cn:"匈牙利",capital:"Budapest",capitalCn:"布达佩斯",pop:9750149,gdp:18728,cont:"Europe 欧洲",flag:"🇭🇺"},
+  "352":{a2:"IS",name:"Iceland",cn:"冰岛",capital:"Reykjavik",capitalCn:"雷克雅维克",pop:376248,gdp:73981,cont:"Europe 欧洲",flag:"🇮🇸"},
+  "356":{a2:"IN",name:"India",cn:"印度",capital:"New Delhi",capitalCn:"新德里",pop:1428627663,gdp:2485,cont:"Asia 亚洲",flag:"🇮🇳"},
+  "360":{a2:"ID",name:"Indonesia",cn:"印度尼西亚",capital:"Jakarta",capitalCn:"雅加达",pop:277534122,gdp:4788,cont:"Asia 亚洲",flag:"🇮🇩"},
+  "364":{a2:"IR",name:"Iran",cn:"伊朗",capital:"Tehran",capitalCn:"德黑兰",pop:88550570,gdp:4091,cont:"Asia 亚洲",flag:"🇮🇷"},
+  "368":{a2:"IQ",name:"Iraq",cn:"伊拉克",capital:"Baghdad",capitalCn:"巴格达",pop:43533592,gdp:5048,cont:"Asia 亚洲",flag:"🇮🇶"},
+  "372":{a2:"IE",name:"Ireland",cn:"爱尔兰",capital:"Dublin",capitalCn:"都柏林",pop:5056935,gdp:100172,cont:"Europe 欧洲",flag:"🇮🇪"},
+  "376":{a2:"IL",name:"Israel",cn:"以色列",capital:"Jerusalem",capitalCn:"耶路撒冷",pop:9174520,gdp:52170,cont:"Asia 亚洲",flag:"🇮🇱"},
+  "380":{a2:"IT",name:"Italy",cn:"意大利",capital:"Rome",capitalCn:"罗马",pop:59037474,gdp:34776,cont:"Europe 欧洲",flag:"🇮🇹"},
+  "388":{a2:"JM",name:"Jamaica",cn:"牙买加",capital:"Kingston",capitalCn:"金斯敦",pop:2827695,gdp:5761,cont:"N. America 北美洲",flag:"🇯🇲"},
+  "392":{a2:"JP",name:"Japan",cn:"日本",capital:"Tokyo",capitalCn:"东京",pop:125124989,gdp:33815,cont:"Asia 亚洲",flag:"🇯🇵"},
+  "400":{a2:"JO",name:"Jordan",cn:"约旦",capital:"Amman",capitalCn:"安曼",pop:11285869,gdp:4103,cont:"Asia 亚洲",flag:"🇯🇴"},
+  "398":{a2:"KZ",name:"Kazakhstan",cn:"哈萨克斯坦",capital:"Astana",capitalCn:"阿斯塔纳",pop:19606633,gdp:11477,cont:"Asia 亚洲",flag:"🇰🇿"},
+  "404":{a2:"KE",name:"Kenya",cn:"肯尼亚",capital:"Nairobi",capitalCn:"内罗毕",pop:54027487,gdp:2099,cont:"Africa 非洲",flag:"🇰🇪"},
+  "408":{a2:"KP",name:"North Korea",cn:"朝鲜",capital:"Pyongyang",capitalCn:"平壤",pop:26069416,gdp:640,cont:"Asia 亚洲",flag:"🇰🇵"},
+  "410":{a2:"KR",name:"South Korea",cn:"韩国",capital:"Seoul",capitalCn:"首尔",pop:51784059,gdp:32423,cont:"Asia 亚洲",flag:"🇰🇷"},
+  "414":{a2:"KW",name:"Kuwait",cn:"科威特",capital:"Kuwait City",capitalCn:"科威特城",pop:4268873,gdp:33036,cont:"Asia 亚洲",flag:"🇰🇼"},
+  "417":{a2:"KG",name:"Kyrgyzstan",cn:"吉尔吉斯斯坦",capital:"Bishkek",capitalCn:"比什凯克",pop:6974900,gdp:1376,cont:"Asia 亚洲",flag:"🇰🇬"},
+  "418":{a2:"LA",name:"Laos",cn:"老挝",capital:"Vientiane",capitalCn:"万象",pop:7529475,gdp:2054,cont:"Asia 亚洲",flag:"🇱🇦"},
+  "428":{a2:"LV",name:"Latvia",cn:"拉脱维亚",capital:"Riga",capitalCn:"里加",pop:1842226,gdp:21148,cont:"Europe 欧洲",flag:"🇱🇻"},
+  "422":{a2:"LB",name:"Lebanon",cn:"黎巴嫩",capital:"Beirut",capitalCn:"贝鲁特",pop:5490000,gdp:4891,cont:"Asia 亚洲",flag:"🇱🇧"},
+  "426":{a2:"LS",name:"Lesotho",cn:"莱索托",capital:"Maseru",capitalCn:"马塞卢",pop:2281454,gdp:1093,cont:"Africa 非洲",flag:"🇱🇸"},
+  "430":{a2:"LR",name:"Liberia",cn:"利比里亚",capital:"Monrovia",capitalCn:"蒙罗维亚",pop:5302681,gdp:621,cont:"Africa 非洲",flag:"🇱🇷"},
+  "434":{a2:"LY",name:"Libya",cn:"利比亚",capital:"Tripoli",capitalCn:"的黎波里",pop:6888388,gdp:6357,cont:"Africa 非洲",flag:"🇱🇾"},
+  "440":{a2:"LT",name:"Lithuania",cn:"立陶宛",capital:"Vilnius",capitalCn:"维尔纽斯",pop:2857279,gdp:24032,cont:"Europe 欧洲",flag:"🇱🇹"},
+  "442":{a2:"LU",name:"Luxembourg",cn:"卢森堡",capital:"Luxembourg",capitalCn:"卢森堡",pop:660809,gdp:126598,cont:"Europe 欧洲",flag:"🇱🇺"},
+  "450":{a2:"MG",name:"Madagascar",cn:"马达加斯加",capital:"Antananarivo",capitalCn:"塔那那利佛",pop:29611714,gdp:523,cont:"Africa 非洲",flag:"🇲🇬"},
+  "454":{a2:"MW",name:"Malawi",cn:"马拉维",capital:"Lilongwe",capitalCn:"利隆圭",pop:20405317,gdp:645,cont:"Africa 非洲",flag:"🇲🇼"},
+  "458":{a2:"MY",name:"Malaysia",cn:"马来西亚",capital:"Kuala Lumpur",capitalCn:"吉隆坡",pop:33938221,gdp:12570,cont:"Asia 亚洲",flag:"🇲🇾"},
+  "466":{a2:"ML",name:"Mali",cn:"马里",capital:"Bamako",capitalCn:"巴马科",pop:22593590,gdp:833,cont:"Africa 非洲",flag:"🇲🇱"},
+  "478":{a2:"MR",name:"Mauritania",cn:"毛里塔尼亚",capital:"Nouakchott",capitalCn:"努瓦克肖特",pop:4614974,gdp:2166,cont:"Africa 非洲",flag:"🇲🇷"},
+  "484":{a2:"MX",name:"Mexico",cn:"墨西哥",capital:"Mexico City",capitalCn:"墨西哥城",pop:128901000,gdp:10948,cont:"N. America 北美洲",flag:"🇲🇽"},
+  "498":{a2:"MD",name:"Moldova",cn:"摩尔多瓦",capital:"Chișinău",capitalCn:"基希讷乌",pop:2597100,gdp:5563,cont:"Europe 欧洲",flag:"🇲🇩"},
+  "496":{a2:"MN",name:"Mongolia",cn:"蒙古",capital:"Ulaanbaatar",capitalCn:"乌兰巴托",pop:3398366,gdp:4965,cont:"Asia 亚洲",flag:"🇲🇳"},
+  "499":{a2:"ME",name:"Montenegro",cn:"黑山",capital:"Podgorica",capitalCn:"波德戈里察",pop:621306,gdp:10143,cont:"Europe 欧洲",flag:"🇲🇪"},
+  "504":{a2:"MA",name:"Morocco",cn:"摩洛哥",capital:"Rabat",capitalCn:"拉巴特",pop:37457971,gdp:3527,cont:"Africa 非洲",flag:"🇲🇦"},
+  "508":{a2:"MZ",name:"Mozambique",cn:"莫桑比克",capital:"Maputo",capitalCn:"马普托",pop:33897354,gdp:539,cont:"Africa 非洲",flag:"🇲🇿"},
+  "104":{a2:"MM",name:"Myanmar",cn:"缅甸",capital:"Naypyidaw",capitalCn:"内比都",pop:54179306,gdp:1095,cont:"Asia 亚洲",flag:"🇲🇲"},
+  "516":{a2:"NA",name:"Namibia",cn:"纳米比亚",capital:"Windhoek",capitalCn:"温得和克",pop:2604172,gdp:4866,cont:"Africa 非洲",flag:"🇳🇦"},
+  "524":{a2:"NP",name:"Nepal",cn:"尼泊尔",capital:"Kathmandu",capitalCn:"加德满都",pop:30896590,gdp:1337,cont:"Asia 亚洲",flag:"🇳🇵"},
+  "528":{a2:"NL",name:"Netherlands",cn:"荷兰",capital:"Amsterdam",capitalCn:"阿姆斯特丹",pop:17618299,gdp:57025,cont:"Europe 欧洲",flag:"🇳🇱"},
+  "554":{a2:"NZ",name:"New Zealand",cn:"新西兰",capital:"Wellington",capitalCn:"惠灵顿",pop:5124100,gdp:48781,cont:"Oceania 大洋洲",flag:"🇳🇿"},
+  "558":{a2:"NI",name:"Nicaragua",cn:"尼加拉瓜",capital:"Managua",capitalCn:"马那瓜",pop:6948392,gdp:2045,cont:"N. America 北美洲",flag:"🇳🇮"},
+  "562":{a2:"NE",name:"Niger",cn:"尼日尔",capital:"Niamey",capitalCn:"尼亚美",pop:26207977,gdp:553,cont:"Africa 非洲",flag:"🇳🇪"},
+  "566":{a2:"NG",name:"Nigeria",cn:"尼日利亚",capital:"Abuja",capitalCn:"阿布贾",pop:218541212,gdp:2066,cont:"Africa 非洲",flag:"🇳🇬"},
+  "807":{a2:"MK",name:"North Macedonia",cn:"北马其顿",capital:"Skopje",capitalCn:"斯科普里",pop:1836713,gdp:6578,cont:"Europe 欧洲",flag:"🇲🇰"},
+  "578":{a2:"NO",name:"Norway",cn:"挪威",capital:"Oslo",capitalCn:"奥斯陆",pop:5457127,gdp:106149,cont:"Europe 欧洲",flag:"🇳🇴"},
+  "512":{a2:"OM",name:"Oman",cn:"阿曼",capital:"Muscat",capitalCn:"马斯喀特",pop:5106626,gdp:20301,cont:"Asia 亚洲",flag:"🇴🇲"},
+  "586":{a2:"PK",name:"Pakistan",cn:"巴基斯坦",capital:"Islamabad",capitalCn:"伊斯兰堡",pop:231402117,gdp:1505,cont:"Asia 亚洲",flag:"🇵🇰"},
+  "591":{a2:"PA",name:"Panama",cn:"巴拿马",capital:"Panama City",capitalCn:"巴拿马城",pop:4408581,gdp:15731,cont:"N. America 北美洲",flag:"🇵🇦"},
+  "598":{a2:"PG",name:"Papua New Guinea",cn:"巴布亚新几内亚",capital:"Port Moresby",capitalCn:"莫尔兹比港",pop:10142619,gdp:2897,cont:"Oceania 大洋洲",flag:"🇵🇬"},
+  "600":{a2:"PY",name:"Paraguay",cn:"巴拉圭",capital:"Asunción",capitalCn:"亚松森",pop:6109644,gdp:5893,cont:"S. America 南美洲",flag:"🇵🇾"},
+  "604":{a2:"PE",name:"Peru",cn:"秘鲁",capital:"Lima",capitalCn:"利马",pop:33715471,gdp:7126,cont:"S. America 南美洲",flag:"🇵🇪"},
+  "608":{a2:"PH",name:"Philippines",cn:"菲律宾",capital:"Manila",capitalCn:"马尼拉",pop:115559009,gdp:3623,cont:"Asia 亚洲",flag:"🇵🇭"},
+  "616":{a2:"PL",name:"Poland",cn:"波兰",capital:"Warsaw",capitalCn:"华沙",pop:37950802,gdp:18321,cont:"Europe 欧洲",flag:"🇵🇱"},
+  "620":{a2:"PT",name:"Portugal",cn:"葡萄牙",capital:"Lisbon",capitalCn:"里斯本",pop:10352042,gdp:24567,cont:"Europe 欧洲",flag:"🇵🇹"},
+  "634":{a2:"QA",name:"Qatar",cn:"卡塔尔",capital:"Doha",capitalCn:"多哈",pop:2930524,gdp:66838,cont:"Asia 亚洲",flag:"🇶🇦"},
+  "642":{a2:"RO",name:"Romania",cn:"罗马尼亚",capital:"Bucharest",capitalCn:"布加勒斯特",pop:19031335,gdp:15820,cont:"Europe 欧洲",flag:"🇷🇴"},
+  "643":{a2:"RU",name:"Russia",cn:"俄罗斯",capital:"Moscow",capitalCn:"莫斯科",pop:144236933,gdp:12172,cont:"Europe/Asia 欧亚",flag:"🇷🇺"},
+  "646":{a2:"RW",name:"Rwanda",cn:"卢旺达",capital:"Kigali",capitalCn:"基加利",pop:13461888,gdp:966,cont:"Africa 非洲",flag:"🇷🇼"},
+  "682":{a2:"SA",name:"Saudi Arabia",cn:"沙特阿拉伯",capital:"Riyadh",capitalCn:"利雅得",pop:36408820,gdp:27607,cont:"Asia 亚洲",flag:"🇸🇦"},
+  "686":{a2:"SN",name:"Senegal",cn:"塞内加尔",capital:"Dakar",capitalCn:"达喀尔",pop:17763163,gdp:1637,cont:"Africa 非洲",flag:"🇸🇳"},
+  "688":{a2:"RS",name:"Serbia",cn:"塞尔维亚",capital:"Belgrade",capitalCn:"贝尔格莱德",pop:6664449,gdp:9230,cont:"Europe 欧洲",flag:"🇷🇸"},
+  "694":{a2:"SL",name:"Sierra Leone",cn:"塞拉利昂",capital:"Freetown",capitalCn:"弗里敦",pop:8605718,gdp:470,cont:"Africa 非洲",flag:"🇸🇱"},
+  "702":{a2:"SG",name:"Singapore",cn:"新加坡",capital:"Singapore",capitalCn:"新加坡",pop:5637022,gdp:65233,cont:"Asia 亚洲",flag:"🇸🇬"},
+  "703":{a2:"SK",name:"Slovakia",cn:"斯洛伐克",capital:"Bratislava",capitalCn:"布拉迪斯拉发",pop:5643453,gdp:20623,cont:"Europe 欧洲",flag:"🇸🇰"},
+  "705":{a2:"SI",name:"Slovenia",cn:"斯洛文尼亚",capital:"Ljubljana",capitalCn:"卢布尔雅那",pop:2107180,gdp:29291,cont:"Europe 欧洲",flag:"🇸🇮"},
+  "090":{a2:"SB",name:"Solomon Islands",cn:"所罗门群岛",capital:"Honiara",capitalCn:"霍尼亚拉",pop:724273,gdp:2258,cont:"Oceania 大洋洲",flag:"🇸🇧"},
+  "706":{a2:"SO",name:"Somalia",cn:"索马里",capital:"Mogadishu",capitalCn:"摩加迪沙",pop:17597511,gdp:447,cont:"Africa 非洲",flag:"🇸🇴"},
+  "710":{a2:"ZA",name:"South Africa",cn:"南非",capital:"Pretoria",capitalCn:"比勒陀利亚",pop:59893885,gdp:6994,cont:"Africa 非洲",flag:"🇿🇦"},
+  "728":{a2:"SS",name:"South Sudan",cn:"南苏丹",capital:"Juba",capitalCn:"朱巴",pop:11193725,gdp:515,cont:"Africa 非洲",flag:"🇸🇸"},
+  "724":{a2:"ES",name:"Spain",cn:"西班牙",capital:"Madrid",capitalCn:"马德里",pop:47615034,gdp:30103,cont:"Europe 欧洲",flag:"🇪🇸"},
+  "144":{a2:"LK",name:"Sri Lanka",cn:"斯里兰卡",capital:"Sri Jayawardenepura Kotte",capitalCn:"科特",pop:22156000,gdp:3474,cont:"Asia 亚洲",flag:"🇱🇰"},
+  "729":{a2:"SD",name:"Sudan",cn:"苏丹",capital:"Khartoum",capitalCn:"喀土穆",pop:46874204,gdp:710,cont:"Africa 非洲",flag:"🇸🇩"},
+  "740":{a2:"SR",name:"Suriname",cn:"苏里南",capital:"Paramaribo",capitalCn:"帕拉马里博",pop:618040,gdp:5274,cont:"S. America 南美洲",flag:"🇸🇷"},
+  "752":{a2:"SE",name:"Sweden",cn:"瑞典",capital:"Stockholm",capitalCn:"斯德哥尔摩",pop:10521556,gdp:55566,cont:"Europe 欧洲",flag:"🇸🇪"},
+  "756":{a2:"CH",name:"Switzerland",cn:"瑞士",capital:"Bern",capitalCn:"伯尔尼",pop:8796669,gdp:92434,cont:"Europe 欧洲",flag:"🇨🇭"},
+  "760":{a2:"SY",name:"Syria",cn:"叙利亚",capital:"Damascus",capitalCn:"大马士革",pop:22125249,gdp:533,cont:"Asia 亚洲",flag:"🇸🇾"},
+  "158":{a2:"TW",name:"Taiwan",cn:"台湾",capital:"Taipei",capitalCn:"台北",pop:23893394,gdp:32756,cont:"Asia 亚洲",flag:"🇹🇼"},
+  "762":{a2:"TJ",name:"Tajikistan",cn:"塔吉克斯坦",capital:"Dushanbe",capitalCn:"杜尚别",pop:10143543,gdp:887,cont:"Asia 亚洲",flag:"🇹🇯"},
+  "834":{a2:"TZ",name:"Tanzania",cn:"坦桑尼亚",capital:"Dodoma",capitalCn:"多多马",pop:65497748,gdp:1136,cont:"Africa 非洲",flag:"🇹🇿"},
+  "764":{a2:"TH",name:"Thailand",cn:"泰国",capital:"Bangkok",capitalCn:"曼谷",pop:71801279,gdp:7233,cont:"Asia 亚洲",flag:"🇹🇭"},
+  "626":{a2:"TL",name:"Timor-Leste",cn:"东帝汶",capital:"Dili",capitalCn:"帝力",pop:1341296,gdp:1560,cont:"Asia 亚洲",flag:"🇹🇱"},
+  "768":{a2:"TG",name:"Togo",cn:"多哥",capital:"Lomé",capitalCn:"洛美",pop:8848699,gdp:915,cont:"Africa 非洲",flag:"🇹🇬"},
+  "780":{a2:"TT",name:"Trinidad and Tobago",cn:"特立尼达和多巴哥",capital:"Port of Spain",capitalCn:"西班牙港",pop:1534937,gdp:17823,cont:"N. America 北美洲",flag:"🇹🇹"},
+  "788":{a2:"TN",name:"Tunisia",cn:"突尼斯",capital:"Tunis",capitalCn:"突尼斯",pop:12262946,gdp:3775,cont:"Africa 非洲",flag:"🇹🇳"},
+  "792":{a2:"TR",name:"Turkey",cn:"土耳其",capital:"Ankara",capitalCn:"安卡拉",pop:85279553,gdp:10616,cont:"Europe/Asia 欧亚",flag:"🇹🇷"},
+  "795":{a2:"TM",name:"Turkmenistan",cn:"土库曼斯坦",capital:"Ashgabat",capitalCn:"阿什哈巴德",pop:6430770,gdp:8280,cont:"Asia 亚洲",flag:"🇹🇲"},
+  "800":{a2:"UG",name:"Uganda",cn:"乌干达",capital:"Kampala",capitalCn:"坎帕拉",pop:47729952,gdp:964,cont:"Africa 非洲",flag:"🇺🇬"},
+  "804":{a2:"UA",name:"Ukraine",cn:"乌克兰",capital:"Kyiv",capitalCn:"基辅",pop:41167336,gdp:4534,cont:"Europe 欧洲",flag:"🇺🇦"},
+  "784":{a2:"AE",name:"United Arab Emirates",cn:"阿联酋",capital:"Abu Dhabi",capitalCn:"阿布扎比",pop:9441129,gdp:49451,cont:"Asia 亚洲",flag:"🇦🇪"},
+  "826":{a2:"GB",name:"United Kingdom",cn:"英国",capital:"London",capitalCn:"伦敦",pop:67886011,gdp:46125,cont:"Europe 欧洲",flag:"🇬🇧"},
+  "840":{a2:"US",name:"United States",cn:"美国",capital:"Washington D.C.",capitalCn:"华盛顿特区",pop:331893745,gdp:76399,cont:"N. America 北美洲",flag:"🇺🇸"},
+  "858":{a2:"UY",name:"Uruguay",cn:"乌拉圭",capital:"Montevideo",capitalCn:"蒙得维的亚",pop:3444263,gdp:20795,cont:"S. America 南美洲",flag:"🇺🇾"},
+  "860":{a2:"UZ",name:"Uzbekistan",cn:"乌兹别克斯坦",capital:"Tashkent",capitalCn:"塔什干",pop:35163944,gdp:2255,cont:"Asia 亚洲",flag:"🇺🇿"},
+  "548":{a2:"VU",name:"Vanuatu",cn:"瓦努阿图",capital:"Port Vila",capitalCn:"维拉港",pop:319137,gdp:3229,cont:"Oceania 大洋洲",flag:"🇻🇺"},
+  "862":{a2:"VE",name:"Venezuela",cn:"委内瑞拉",capital:"Caracas",capitalCn:"加拉加斯",pop:28838499,gdp:3740,cont:"S. America 南美洲",flag:"🇻🇪"},
+  "704":{a2:"VN",name:"Vietnam",cn:"越南",capital:"Hanoi",capitalCn:"河内",pop:99461190,gdp:4164,cont:"Asia 亚洲",flag:"🇻🇳"},
+  "887":{a2:"YE",name:"Yemen",cn:"也门",capital:"Sana'a",capitalCn:"萨那",pop:33696614,gdp:585,cont:"Asia 亚洲",flag:"🇾🇪"},
+  "894":{a2:"ZM",name:"Zambia",cn:"赞比亚",capital:"Lusaka",capitalCn:"卢萨卡",pop:20017675,gdp:1291,cont:"Africa 非洲",flag:"🇿🇲"},
+  "716":{a2:"ZW",name:"Zimbabwe",cn:"津巴布韦",capital:"Harare",capitalCn:"哈拉雷",pop:16320537,gdp:1737,cont:"Africa 非洲",flag:"🇿🇼"},
+  "732":{a2:"EH",name:"Western Sahara",cn:"西撒哈拉",capital:"Laayoune",capitalCn:"阿尤恩",pop:612000,gdp:2500,cont:"Africa 非洲",flag:"🇪🇭"},
+  "-99":{a2:"XK",name:"Kosovo",cn:"科索沃",capital:"Pristina",capitalCn:"普里什蒂纳",pop:1782115,gdp:5269,cont:"Europe 欧洲",flag:"🇽🇰"},
+  "275":{a2:"PS",name:"Palestine",cn:"巴勒斯坦",capital:"Ramallah",capitalCn:"拉姆安拉",pop:5250000,gdp:3664,cont:"Asia 亚洲",flag:"🇵🇸"}
 };
 
-// FIPS to abbreviation
-const fipsToAbbr = {};
-for (const [abbr, data] of Object.entries(stateData)) {
-  fipsToAbbr[data.fips] = abbr;
+// Build lookups
+const a2Lookup = {};
+const a2ToNum = {};
+for (const [numId, d] of Object.entries(countries)) {
+  a2Lookup[d.a2] = { ...d, numId };
+  a2ToNum[d.a2] = numId;
 }
 
-// Color palette for states
-const stateColors = [
-  "#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#8b5cf6",
-  "#ec4899", "#06b6d4", "#f97316", "#84cc16", "#6366f1",
-  "#14b8a6", "#e11d48", "#0ea5e9", "#d946ef", "#22c55e",
-  "#eab308", "#a855f7", "#f43f5e", "#2dd4bf", "#fb923c",
-  "#4ade80", "#818cf8", "#fb7185", "#34d399", "#fbbf24",
-  "#a78bfa", "#38bdf8", "#c084fc", "#4f46e5", "#059669",
-  "#dc2626", "#7c3aed", "#0284c7", "#65a30d", "#db2777",
-  "#0891b2", "#c026d3", "#ea580c", "#16a34a", "#9333ea",
-  "#e879f9", "#2563eb", "#d97706", "#15803d", "#be123c",
-  "#7e22ce", "#0369a1", "#b91c1c", "#047857", "#9f1239",
-  "#6d28d9"
-];
-
-function getStateColor(abbr) {
-  const keys = Object.keys(stateData);
-  const idx = keys.indexOf(abbr);
-  return stateColors[idx % stateColors.length];
+// ---- Color ----
+const continentPalettes = {
+  "Asia 亚洲":         ["#f59e0b","#f97316","#fbbf24","#fb923c","#fcd34d","#fdba74","#eab308","#ea580c","#d97706","#c2410c"],
+  "Europe 欧洲":       ["#3b82f6","#6366f1","#818cf8","#60a5fa","#a5b4fc","#93c5fd","#4f46e5","#2563eb","#7c3aed","#4338ca"],
+  "Europe/Asia 欧亚":  ["#8b5cf6","#a78bfa","#c084fc"],
+  "Africa 非洲":       ["#10b981","#34d399","#6ee7b7","#059669","#14b8a6","#2dd4bf","#0d9488","#047857","#15803d","#16a34a","#22c55e","#4ade80"],
+  "N. America 北美洲": ["#ef4444","#f43f5e","#fb7185","#e11d48","#dc2626","#f87171","#be123c","#b91c1c"],
+  "S. America 南美洲": ["#ec4899","#f472b6","#e879f9","#d946ef","#c026d3","#db2777","#a855f7","#9333ea"],
+  "Oceania 大洋洲":    ["#06b6d4","#22d3ee","#67e8f9","#0ea5e9","#38bdf8","#0891b2"]
+};
+const continentCounters = {};
+function getCountryColor(cData) {
+  if (!cData) return "#334155";
+  const cont = cData.cont;
+  const pal = continentPalettes[cont] || continentPalettes["Asia 亚洲"];
+  if (!continentCounters[cont]) continentCounters[cont] = 0;
+  const c = pal[continentCounters[cont] % pal.length];
+  continentCounters[cont]++;
+  return c;
+}
+function getCountryColorDirect(cData) {
+  const cont = cData.cont;
+  const pal = continentPalettes[cont] || continentPalettes["Asia 亚洲"];
+  let h = 0;
+  for (let i = 0; i < cData.a2.length; i++) h = (h * 31 + cData.a2.charCodeAt(i)) & 0xffff;
+  return pal[h % pal.length];
 }
 
-// ========== MAP RENDERING ==========
-const width = 960;
-const height = 600;
+// ---- Label sizing ----
+const largePop = new Set(["CN","IN","US","RU","BR","ID","PK","NG","BD","MX","JP","ET","EG","DE","TR","FR","GB","IT","ZA","CA","AU","AR","SA","KZ","DZ"]);
+const tinyCountries = new Set(["LU","SG","BN","DJ","SZ","LS","GW","TL","BT","VU","SB","CY","TT","JM","QA","KW","BZ","ME","MK","SI","SK","BA","HR","LV","EE","LT","AL","MD","AM","GE","AZ"]);
 
+// ---- Map ----
+const width = 960, height = 520;
 const svg = d3.select("#map-svg")
   .attr("viewBox", `0 0 ${width} ${height}`)
   .attr("preserveAspectRatio", "xMidYMid meet");
 
-const projection = d3.geoAlbersUsa()
-  .scale(1200)
-  .translate([width / 2, height / 2]);
+const g = svg.append("g");
 
-const path = d3.geoPath().projection(projection);
-
-// Load US topology data
-const topoUrl = "https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json";
-
-d3.json(topoUrl).then(us => {
-  const states = topojson.feature(us, us.objects.states).features;
-
-  // Draw states
-  const stateGroup = svg.append("g");
-
-  stateGroup.selectAll("path")
-    .data(states)
-    .enter()
-    .append("path")
-    .attr("class", "state-path")
-    .attr("d", path)
-    .attr("fill", d => {
-      const fipsId = String(d.id).padStart(2, '0');
-      const abbr = fipsToAbbr[fipsId];
-      return abbr ? getStateColor(abbr) : "#334155";
-    })
-    .attr("data-fips", d => String(d.id).padStart(2, '0'))
-    .on("click", function(event, d) {
-      const fipsId = String(d.id).padStart(2, '0');
-      const abbr = fipsToAbbr[fipsId];
-      if (abbr) showStateDetail(abbr, d);
-    });
-
-  // Add state labels
-  const labelGroup = svg.append("g");
-
-  states.forEach(d => {
-    const fipsId = String(d.id).padStart(2, '0');
-    const abbr = fipsToAbbr[fipsId];
-    if (!abbr) return;
-
-    const centroid = path.centroid(d);
-    if (!centroid || isNaN(centroid[0])) return;
-
-    // Adjust label positions for small/oddly shaped states
-    const labelOffsets = {
-      "FL": [14, 10], "LA": [0, 4], "MI": [14, 10],
-      "CA": [-8, 0], "ID": [0, -4], "VA": [8, -2],
-      "MD": [12, -6], "NJ": [8, 2], "DE": [10, 4],
-      "CT": [12, 2], "RI": [14, 0], "MA": [16, -4],
-      "NH": [10, -4], "VT": [0, -2], "HI": [0, 0],
-      "DC": [14, 8]
-    };
-
-    const offset = labelOffsets[abbr] || [0, 0];
-    const smallStates = ["CT", "RI", "DE", "DC", "NH", "VT", "MA", "NJ", "MD"];
-    const isSmall = smallStates.includes(abbr);
-
-    labelGroup.append("text")
-      .attr("class", `state-label ${isSmall ? 'state-label-small' : ''}`)
-      .attr("x", centroid[0] + offset[0])
-      .attr("y", centroid[1] + offset[1])
-      .text(abbr);
+const zoomBehavior = d3.zoom()
+  .scaleExtent([1, 12])
+  .on("zoom", (event) => {
+    g.attr("transform", event.transform);
+    const k = event.transform.k;
+    g.selectAll(".country-label")
+      .style("font-size", function() {
+        const base = this.classList.contains("label-lg") ? 8 : this.classList.contains("label-sm") ? 5 : 6.5;
+        return (base / k) + "px";
+      })
+      .style("stroke-width", (1.5 / k) + "px");
+    g.selectAll(".country-path")
+      .style("stroke-width", (0.4 / k) + "px");
   });
 
-  // Store features for later use
-  window._stateFeatures = {};
-  states.forEach(d => {
-    const fipsId = String(d.id).padStart(2, '0');
-    const abbr = fipsToAbbr[fipsId];
-    if (abbr) window._stateFeatures[abbr] = d;
+svg.call(zoomBehavior);
+
+const projection = d3.geoNaturalEarth1().scale(155).translate([width / 2, height / 2 + 10]);
+const pathGen = d3.geoPath().projection(projection);
+
+const tooltip = document.getElementById("tooltip");
+
+// ---- Search state ----
+let searchActive = false;
+let focusedNumId = null;
+
+const topoUrl = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
+
+d3.json(topoUrl).then(world => {
+  const feats = topojson.feature(world, world.objects.countries).features;
+
+  const colorMap = {};
+  feats.forEach(f => {
+    const numId = String(f.id);
+    colorMap[numId] = getCountryColor(countries[numId]);
+  });
+
+  // Draw countries
+  g.selectAll("path")
+    .data(feats)
+    .enter()
+    .append("path")
+    .attr("class", "country-path")
+    .attr("d", pathGen)
+    .attr("fill", d => colorMap[String(d.id)] || "#334155")
+    .attr("data-id", d => String(d.id))
+    .on("click", (event, d) => {
+      if (searchActive) return;
+      const cData = countries[String(d.id)];
+      if (cData) showModal(cData, d);
+    })
+    .on("mousemove", (event, d) => {
+      if (searchActive) return;
+      const cData = countries[String(d.id)];
+      if (cData) {
+        tooltip.style.display = "block";
+        tooltip.style.left = (event.clientX + 14) + "px";
+        tooltip.style.top = (event.clientY - 10) + "px";
+        document.getElementById("tt-name").textContent = cData.a2 + " — " + cData.name;
+        document.getElementById("tt-cn").textContent = cData.cn;
+      }
+    })
+    .on("mouseleave", () => { tooltip.style.display = "none"; });
+
+  // Labels
+  const labelG = g.append("g").attr("class", "labels-group");
+  feats.forEach(f => {
+    const numId = String(f.id);
+    const cData = countries[numId];
+    if (!cData) return;
+    const centroid = pathGen.centroid(f);
+    if (!centroid || isNaN(centroid[0])) return;
+    const cls = largePop.has(cData.a2) ? "label-lg" : tinyCountries.has(cData.a2) ? "label-sm" : "";
+    labelG.append("text")
+      .attr("class", `country-label ${cls}`)
+      .attr("x", centroid[0])
+      .attr("y", centroid[1])
+      .attr("data-id", numId)
+      .text(cData.a2);
+  });
+
+  // Pulse ring group (above countries, below labels)
+  const pulseG = g.append("g").attr("class", "pulse-group");
+
+  // Store features
+  window._countryFeatures = {};
+  window._featsMap = {};
+  feats.forEach(f => {
+    const numId = String(f.id);
+    const cData = countries[numId];
+    if (cData) {
+      window._countryFeatures[cData.a2] = f;
+      window._featsMap[numId] = f;
+    }
+  });
+
+  // ============================================================
+  //  SEARCH LOGIC
+  // ============================================================
+  const searchBox = document.getElementById("search-box");
+  const searchBtn = document.getElementById("search-btn");
+  const searchHint = document.getElementById("search-hint");
+  const acBox = document.getElementById("autocomplete");
+
+  // Enable/disable search button based on input length
+  searchBox.addEventListener("input", () => {
+    const v = searchBox.value.replace(/[^a-zA-Z]/g, '').toUpperCase();
+    searchBox.value = v;
+    searchBtn.disabled = v.length < 2;
+    if (v.length < 2) {
+      searchHint.textContent = v.length === 0 ? "输入2位字母代码" : "再输入1位...";
+      searchHint.classList.remove("error");
+    } else {
+      searchHint.textContent = "按 Enter 或点击搜索";
+      searchHint.classList.remove("error");
+    }
+    showAutocomplete(v);
+  });
+
+  // Enter triggers search
+  searchBox.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && searchBox.value.length >= 2) {
+      acBox.classList.remove("show");
+      executeSearch(searchBox.value.toUpperCase());
+    }
+    // Arrow nav in autocomplete
+    if (acBox.classList.contains("show")) {
+      const items = acBox.querySelectorAll(".ac-item");
+      const activeIdx = [...items].findIndex(i => i.classList.contains("active"));
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        items.forEach(i => i.classList.remove("active"));
+        items[(activeIdx + 1) % items.length].classList.add("active");
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        items.forEach(i => i.classList.remove("active"));
+        items[(activeIdx - 1 + items.length) % items.length].classList.add("active");
+      } else if (e.key === "Enter" && activeIdx >= 0) {
+        e.preventDefault();
+        acBox.classList.remove("show");
+        const code = items[activeIdx].dataset.code;
+        searchBox.value = code;
+        executeSearch(code);
+      }
+    }
+  });
+
+  searchBtn.addEventListener("click", () => {
+    acBox.classList.remove("show");
+    if (searchBox.value.length >= 2) executeSearch(searchBox.value.toUpperCase());
+  });
+
+  function showAutocomplete(q) {
+    acBox.innerHTML = "";
+    if (q.length === 0) { acBox.classList.remove("show"); return; }
+    const matches = [];
+    for (const [numId, cData] of Object.entries(countries)) {
+      if (cData.a2.startsWith(q) || cData.name.toUpperCase().startsWith(q)) {
+        matches.push(cData);
+      }
+    }
+    if (matches.length === 0 || (matches.length === 1 && matches[0].a2 === q)) {
+      acBox.classList.remove("show");
+      return;
+    }
+    matches.sort((a, b) => a.a2.localeCompare(b.a2));
+    matches.slice(0, 8).forEach((c, idx) => {
+      const div = document.createElement("div");
+      div.className = "ac-item" + (idx === 0 ? " active" : "");
+      div.dataset.code = c.a2;
+      div.innerHTML = `<span class="ac-flag">${c.flag}</span><span class="ac-code">${c.a2}</span><span class="ac-name">${c.name}</span><span class="ac-cn">${c.cn}</span>`;
+      div.addEventListener("click", () => {
+        searchBox.value = c.a2;
+        acBox.classList.remove("show");
+        executeSearch(c.a2);
+      });
+      acBox.appendChild(div);
+    });
+    acBox.classList.add("show");
+  }
+
+  // Hide autocomplete on outside click
+  document.addEventListener("click", (e) => {
+    if (!e.target.closest("#controls")) acBox.classList.remove("show");
+  });
+
+  // ---- Execute search with animation ----
+  function executeSearch(code) {
+    const cData = a2Lookup[code];
+    if (!cData) {
+      searchHint.textContent = `❌ 未找到 "${code}"`;
+      searchHint.classList.add("error");
+      return;
+    }
+
+    const numId = cData.numId;
+    const feature = window._featsMap[numId];
+    if (!feature) {
+      searchHint.textContent = `❌ 地图无数据`;
+      searchHint.classList.add("error");
+      return;
+    }
+
+    searchHint.textContent = `✓ ${cData.flag} ${cData.name}`;
+    searchHint.classList.remove("error");
+    searchActive = true;
+    focusedNumId = numId;
+    tooltip.style.display = "none";
+
+    // 1. Dim all other countries & labels
+    g.selectAll(".country-path").classed("dimmed", d => String(d.id) !== numId).classed("search-focus", d => String(d.id) === numId);
+    g.selectAll(".country-label").classed("dimmed", function() { return this.dataset.id !== numId; });
+
+    // 2. Compute zoom transform to center the country
+    const [[x0, y0], [x1, y1]] = pathGen.bounds(feature);
+    const cx = (x0 + x1) / 2;
+    const cy = (y0 + y1) / 2;
+    const bw = x1 - x0;
+    const bh = y1 - y0;
+    // Target: country fills ~40% of viewport height (leave room for bottom panel)
+    const targetH = height * 0.38;
+    const targetW = width * 0.5;
+    const scale = Math.min(targetW / Math.max(bw, 1), targetH / Math.max(bh, 1), 10);
+    // Offset center upward so bottom panel doesn't cover it
+    const tx = width / 2 - cx * scale;
+    const ty = (height * 0.4) - cy * scale;
+
+    const transform = d3.zoomIdentity.translate(tx, ty).scale(scale);
+
+    svg.transition()
+      .duration(1200)
+      .ease(d3.easeCubicInOut)
+      .call(zoomBehavior.transform, transform);
+
+    // 3. Add pulse ring at centroid
+    pulseG.selectAll("*").remove();
+    const centroid = pathGen.centroid(feature);
+    if (centroid && !isNaN(centroid[0])) {
+      for (let i = 0; i < 3; i++) {
+        pulseG.append("circle")
+          .attr("class", "pulse-ring")
+          .attr("cx", centroid[0])
+          .attr("cy", centroid[1])
+          .attr("r", 0)
+          .style("animation-delay", (i * 0.6) + "s");
+      }
+    }
+
+    // 4. Show bottom detail panel
+    showDetailPanel(cData);
+  }
+
+  // ---- Cancel search: animate back ----
+  document.getElementById("cancel-btn").addEventListener("click", cancelSearch);
+
+  function cancelSearch() {
+    if (!searchActive) return;
+    searchActive = false;
+    focusedNumId = null;
+
+    // Hide panel
+    document.getElementById("detail-panel").classList.remove("active");
+
+    // Remove dim/focus
+    g.selectAll(".country-path").classed("dimmed", false).classed("search-focus", false);
+    g.selectAll(".country-label").classed("dimmed", false);
+
+    // Remove pulse
+    pulseG.selectAll("*").remove();
+
+    // Animate back to original zoom
+    svg.transition()
+      .duration(1000)
+      .ease(d3.easeCubicInOut)
+      .call(zoomBehavior.transform, d3.zoomIdentity);
+
+    // Reset search UI
+    searchBox.value = "";
+    searchBtn.disabled = true;
+    searchHint.textContent = "输入2位字母代码";
+    searchHint.classList.remove("error");
+  }
+
+  // ESC also cancels
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape" && searchActive) cancelSearch();
+    if (e.key === "Escape" && !searchActive) closeModal();
+  });
+
+  // ---- Detail panel ----
+  function showDetailPanel(cData) {
+    document.getElementById("detail-flag").textContent = cData.flag;
+    document.getElementById("detail-en-text").textContent = cData.name;
+    document.getElementById("detail-name-cn").textContent = cData.cn;
+
+    const stats = document.getElementById("detail-stats");
+    stats.innerHTML = `
+      <div class="stat-card">
+        <div class="stat-icon">🏛️</div>
+        <div class="stat-label">Capital 首都</div>
+        <div class="stat-value">${cData.capital}</div>
+        <div class="stat-sub">${cData.capitalCn}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">👥</div>
+        <div class="stat-label">Population 人口</div>
+        <div class="stat-value">${cData.pop.toLocaleString()}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">💰</div>
+        <div class="stat-label">GDP/Capita 人均GDP</div>
+        <div class="stat-value">$${cData.gdp.toLocaleString()}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">🌐</div>
+        <div class="stat-label">Code 代码</div>
+        <div class="stat-value">${cData.a2}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">📐</div>
+        <div class="stat-label">Continent 洲</div>
+        <div class="stat-value">${cData.cont}</div>
+      </div>
+    `;
+
+    // Slight delay so animation triggers
+    requestAnimationFrame(() => {
+      document.getElementById("detail-panel").classList.add("active");
+    });
+  }
+
+  // Speak on click English name in detail panel
+  document.getElementById("detail-name-en").addEventListener("click", () => {
+    const name = document.getElementById("detail-en-text").textContent;
+    speakText(name);
   });
 });
 
-// ========== MODAL FUNCTIONS ==========
-function showStateDetail(abbr, feature) {
-  const data = stateData[abbr];
-  if (!data) return;
+// ---- Modal (for direct map click) ----
+function showModal(cData, feature) {
+  document.getElementById("modal-flag").textContent = cData.flag;
+  document.getElementById("modal-country-name").textContent = cData.name;
+  document.getElementById("modal-country-cn").textContent = cData.cn;
+  document.getElementById("info-capital").textContent = cData.capital;
+  document.getElementById("info-capital-cn").textContent = cData.capitalCn;
+  document.getElementById("info-population").textContent = cData.pop.toLocaleString();
+  document.getElementById("info-gdp").textContent = "$" + cData.gdp.toLocaleString();
+  document.getElementById("info-code").textContent = cData.a2;
+  document.getElementById("info-continent").textContent = cData.cont;
 
-  document.getElementById("modal-state-name").textContent = data.name;
-  document.getElementById("modal-state-name-cn").textContent = data.cn;
-  document.getElementById("info-capital").textContent = data.capital;
-  document.getElementById("info-capital-cn").textContent = data.capitalCn;
-  document.getElementById("info-population").textContent = data.population.toLocaleString();
-  document.getElementById("info-gdp").textContent = `$${data.gdpPerCapita.toLocaleString()}`;
-  document.getElementById("info-abbrev").textContent = abbr;
-
-  // Draw zoomed state shape
-  drawStateShape(feature || window._stateFeatures[abbr], abbr);
-
-  document.getElementById("modal-overlay").classList.add("active");
-}
-
-function drawStateShape(feature, abbr) {
-  const shapeSvg = d3.select("#state-shape-svg");
+  const shapeSvg = d3.select("#country-shape-svg");
   shapeSvg.selectAll("*").remove();
-
-  if (!feature) return;
-
-  const shapeProjection = d3.geoMercator();
-  const shapePath = d3.geoPath().projection(shapeProjection);
-
-  // Fit the state to the SVG viewport
-  shapeProjection.fitSize([180, 160], feature);
-
-  shapeSvg.append("path")
-    .attr("d", shapePath(feature))
-    .attr("fill", getStateColor(abbr))
-    .attr("stroke", "#fff")
-    .attr("stroke-width", 1.5)
-    .attr("class", "zoomed-state")
-    .attr("transform", "translate(10, 10)");
+  if (feature) {
+    const sp = d3.geoMercator();
+    const sPath = d3.geoPath().projection(sp);
+    sp.fitSize([180, 160], feature);
+    shapeSvg.append("path")
+      .attr("d", sPath(feature))
+      .attr("fill", getCountryColorDirect(cData))
+      .attr("stroke", "#fff")
+      .attr("stroke-width", 1.5)
+      .attr("class", "zoomed-country")
+      .attr("transform", "translate(5,5)");
+  }
+  document.getElementById("modal-overlay").classList.add("active");
 }
 
 function closeModal() {
   document.getElementById("modal-overlay").classList.remove("active");
 }
-
-// ========== EVENT LISTENERS ==========
 document.getElementById("modal-close").addEventListener("click", closeModal);
 document.getElementById("modal-overlay").addEventListener("click", function(e) {
   if (e.target === this) closeModal();
 });
 
-document.addEventListener("keydown", function(e) {
-  if (e.key === "Escape") closeModal();
-});
+// ---- TTS ----
+function speakText(text) {
+  if (!('speechSynthesis' in window)) return;
+  window.speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = 'en-US';
+  u.rate = 0.85;
+  const voices = window.speechSynthesis.getVoices();
+  const v = voices.find(v => v.lang === 'en-US') || voices.find(v => v.lang.startsWith('en'));
+  if (v) u.voice = v;
+  window.speechSynthesis.speak(u);
+}
 
-// ========== TEXT TO SPEECH ==========
 document.getElementById("speak-btn").addEventListener("click", function() {
-  const stateName = document.getElementById("modal-state-name").textContent;
-  if ('speechSynthesis' in window) {
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(stateName);
-    utterance.lang = 'en-US';
-    utterance.rate = 0.85;
-    utterance.pitch = 1;
-
-    // Try to use a good English voice
-    const voices = window.speechSynthesis.getVoices();
-    const englishVoice = voices.find(v => v.lang.startsWith('en') && v.name.includes('Samantha')) ||
-                         voices.find(v => v.lang === 'en-US') ||
-                         voices.find(v => v.lang.startsWith('en'));
-    if (englishVoice) utterance.voice = englishVoice;
-
-    window.speechSynthesis.speak(utterance);
-
-    // Visual feedback
-    this.textContent = '🔊 Speaking...';
-    utterance.onend = () => { this.textContent = '🔊 Hear Pronunciation'; };
-  }
+  const name = document.getElementById("modal-country-name").textContent;
+  speakText(name);
+  this.textContent = '🔊 Speaking...';
+  const btn = this;
+  const u = window.speechSynthesis;
+  const check = setInterval(() => {
+    if (!u.speaking) { btn.textContent = '🔊 Hear Pronunciation'; clearInterval(check); }
+  }, 200);
 });
 
-// Preload voices
 if ('speechSynthesis' in window) {
   window.speechSynthesis.getVoices();
   window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();

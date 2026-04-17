@@ -40,6 +40,31 @@
     margin-top: 2px;
   }
 
+  #twitter-link {
+    position: absolute;
+    top: 12px;
+    right: 16px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 8px;
+    color: #e2e8f0;
+    text-decoration: none;
+    font-size: 12px;
+    font-weight: 500;
+    transition: all 0.2s;
+    z-index: 30;
+  }
+  #twitter-link:hover {
+    background: rgba(255,255,255,0.12);
+    border-color: rgba(255,255,255,0.3);
+    transform: translateY(-1px);
+  }
+  #twitter-link svg { width: 14px; height: 14px; fill: currentColor; }
+
   #controls {
     display: flex;
     justify-content: center;
@@ -516,6 +541,10 @@
 <div id="header">
   <h1>🌍 World Map Puzzle 世界地图拼图</h1>
   <p>输入两位国家代码搜索 · 点击任意国家查看详情 · 滚轮缩放 · 拖拽平移</p>
+  <a id="twitter-link" href="https://x.com/ayi_ainotes/status/2044625894556230013?s=46" target="_blank" rel="noopener noreferrer" title="View on X">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+    <span>@ayi_ainotes</span>
+  </a>
 </div>
 <div id="controls">
   <input id="search-box" type="text" maxlength="2" placeholder="输入国家代码 (如 CN, US, JP)..." autocomplete="off"/>
